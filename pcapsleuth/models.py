@@ -15,6 +15,13 @@ class Config:
     icmp_flood_threshold: int = 100
     icmp_flood_time_window: int = 1  # seconds
     
+    # Port Scanning Analysis Settings
+    syn_scan_threshold: int = 20  # minimum unique ports to consider SYN scan
+    udp_scan_threshold: int = 15  # minimum unique ports to consider UDP scan
+    stealth_scan_threshold: int = 10  # minimum attempts to consider stealth scan
+    rapid_scan_threshold: int = 50  # packets per second threshold
+    rapid_scan_window: int = 1  # time window in seconds
+    
     # General Settings
     max_top_talkers: int = 10
     max_dns_queries: int = 10
@@ -61,6 +68,63 @@ class IcmpFloodResult:
         }
 
 @dataclass
+class PortScanResult:
+    """Results from port scanning analysis"""
+    tcp_syn_scans: List[Dict[str, Any]] = field(default_factory=list)
+    udp_scans: List[Dict[str, Any]] = field(default_factory=list)
+    stealth_scans: List[Dict[str, Any]] = field(default_factory=list)
+    rapid_scans: List[Dict[str, Any]] = field(default_factory=list)
+    open_ports: Dict[str, Dict[str, List[int]]] = field(default_factory=dict)
+    total_scan_attempts: int = 0
+    
+    def add_tcp_syn_scan(self, src_ip: str, dst_ip: str, port_count: int, ports: List[int]):
+        self.tcp_syn_scans.append({
+            'source_ip': src_ip,
+            'target_ip': dst_ip,
+            'unique_ports': port_count,
+            'ports': ports[:50],  # Limit to first 50 ports for display
+            'scan_type': 'TCP SYN',
+            'detected_at': datetime.now().isoformat()
+        })
+        self.total_scan_attempts += 1
+    
+    def add_udp_scan(self, src_ip: str, dst_ip: str, port_count: int, ports: List[int]):
+        self.udp_scans.append({
+            'source_ip': src_ip,
+            'target_ip': dst_ip,
+            'unique_ports': port_count,
+            'ports': ports[:50],  # Limit to first 50 ports for display
+            'scan_type': 'UDP',
+            'detected_at': datetime.now().isoformat()
+        })
+        self.total_scan_attempts += 1
+    
+    def add_stealth_scan(self, src_ip: str, scan_type: str, target_count: int, targets: List[Tuple[str, int]]):
+        self.stealth_scans.append({
+            'source_ip': src_ip,
+            'scan_type': scan_type,
+            'target_count': target_count,
+            'targets': targets[:20],  # Limit targets for display
+            'detected_at': datetime.now().isoformat()
+        })
+        self.total_scan_attempts += 1
+    
+    def add_rapid_scan(self, src_ip: str, packets_per_second: float, start_time: float, end_time: float):
+        self.rapid_scans.append({
+            'source_ip': src_ip,
+            'packets_per_second': packets_per_second,
+            'duration_seconds': end_time - start_time,
+            'start_time': datetime.fromtimestamp(start_time).isoformat(),
+            'end_time': datetime.fromtimestamp(end_time).isoformat(),
+            'detected_at': datetime.now().isoformat()
+        })
+    
+    def add_open_ports(self, dst_ip: str, protocol: str, ports: List[int]):
+        if dst_ip not in self.open_ports:
+            self.open_ports[dst_ip] = {}
+        self.open_ports[dst_ip][protocol] = ports
+
+@dataclass
 class AnalysisResult:
     """Final analysis results"""
     # Metadata
@@ -77,6 +141,7 @@ class AnalysisResult:
     # Advanced Analysis
     dns_tunneling: DnsTunnelingResult = field(default_factory=DnsTunnelingResult)
     icmp_floods: IcmpFloodResult = field(default_factory=IcmpFloodResult)
+    port_scanning: PortScanResult = field(default_factory=PortScanResult)
     
     # Errors
     errors: List[str] = field(default_factory=list)

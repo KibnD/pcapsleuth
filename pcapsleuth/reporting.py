@@ -44,6 +44,14 @@ def _generate_json_report(results) -> str:
             'icmp_floods': {
                 'total_packets': results.icmp_floods.total_icmp_packets,
                 'detected_floods': results.icmp_floods.potential_floods
+            },
+            'port_scanning': {
+                'total_scan_attempts': results.port_scanning.total_scan_attempts,
+                'tcp_syn_scans': results.port_scanning.tcp_syn_scans,
+                'udp_scans': results.port_scanning.udp_scans,
+                'stealth_scans': results.port_scanning.stealth_scans,
+                'rapid_scans': results.port_scanning.rapid_scans,
+                'open_ports': results.port_scanning.open_ports
             }
         },
         'errors': results.errors
@@ -88,7 +96,40 @@ def _generate_markdown_report(results) -> str:
 ### ICMP Floods
 - **Total ICMP Packets**: {results.icmp_floods.total_icmp_packets}
 - **Detected Floods**: {len(results.icmp_floods.potential_floods)}
+
+### Port Scanning
+- **Total Scan Attempts**: {results.port_scanning.total_scan_attempts}
+- **TCP SYN Scans**: {len(results.port_scanning.tcp_syn_scans)}
+- **UDP Scans**: {len(results.port_scanning.udp_scans)}
+- **Stealth Scans**: {len(results.port_scanning.stealth_scans)}
+- **Rapid Scans**: {len(results.port_scanning.rapid_scans)}
+- **Discovered Open Ports**: {len(results.port_scanning.open_ports)} hosts
 """
+    
+    # Add detailed port scan information
+    if results.port_scanning.tcp_syn_scans:
+        report += "\n#### TCP SYN Scans Detected:\n"
+        for scan in results.port_scanning.tcp_syn_scans[:5]:  # Show first 5
+            report += f"- {scan['source_ip']} → {scan['target_ip']}: {scan['unique_ports']} unique ports\n"
+    
+    if results.port_scanning.udp_scans:
+        report += "\n#### UDP Scans Detected:\n"
+        for scan in results.port_scanning.udp_scans[:5]:  # Show first 5
+            report += f"- {scan['source_ip']} → {scan['target_ip']}: {scan['unique_ports']} unique ports\n"
+    
+    if results.port_scanning.stealth_scans:
+        report += "\n#### Stealth Scans Detected:\n"
+        for scan in results.port_scanning.stealth_scans[:5]:  # Show first 5
+            report += f"- {scan['source_ip']}: {scan['scan_type']} scan, {scan['target_count']} targets\n"
+    
+    if results.port_scanning.open_ports:
+        report += "\n#### Open Ports Discovered:\n"
+        for host, protocols in list(results.port_scanning.open_ports.items())[:10]:  # Show first 10
+            for protocol, ports in protocols.items():
+                ports_str = ', '.join(map(str, ports[:10]))  # Show first 10 ports
+                if len(ports) > 10:
+                    ports_str += f" (+{len(ports)-10} more)"
+                report += f"- {host} ({protocol.upper()}): {ports_str}\n"
     
     if results.errors:
         report += f"\n## Errors\n"
@@ -137,7 +178,45 @@ DNS Tunneling:
 ICMP Floods:
   Total ICMP Packets: {results.icmp_floods.total_icmp_packets}
   Detected Floods: {len(results.icmp_floods.potential_floods)}
+
+Port Scanning:
+  Total Scan Attempts: {results.port_scanning.total_scan_attempts}
+  TCP SYN Scans: {len(results.port_scanning.tcp_syn_scans)}
+  UDP Scans: {len(results.port_scanning.udp_scans)}
+  Stealth Scans: {len(results.port_scanning.stealth_scans)}
+  Rapid Scans: {len(results.port_scanning.rapid_scans)}
+  Discovered Open Ports: {len(results.port_scanning.open_ports)} hosts
 """
+    
+    # Add detailed port scan information
+    if results.port_scanning.tcp_syn_scans:
+        report += "\nTCP SYN Scans Detected:\n"
+        for scan in results.port_scanning.tcp_syn_scans[:5]:  # Show first 5
+            report += f"  {scan['source_ip']} → {scan['target_ip']}: {scan['unique_ports']} unique ports\n"
+    
+    if results.port_scanning.udp_scans:
+        report += "\nUDP Scans Detected:\n"
+        for scan in results.port_scanning.udp_scans[:5]:  # Show first 5
+            report += f"  {scan['source_ip']} → {scan['target_ip']}: {scan['unique_ports']} unique ports\n"
+    
+    if results.port_scanning.stealth_scans:
+        report += "\nStealth Scans Detected:\n"
+        for scan in results.port_scanning.stealth_scans[:5]:  # Show first 5
+            report += f"  {scan['source_ip']}: {scan['scan_type']} scan, {scan['target_count']} targets\n"
+    
+    if results.port_scanning.rapid_scans:
+        report += "\nRapid Scans Detected:\n"
+        for scan in results.port_scanning.rapid_scans[:5]:  # Show first 5
+            report += f"  {scan['source_ip']}: {scan['packets_per_second']:.1f} packets/sec\n"
+    
+    if results.port_scanning.open_ports:
+        report += "\nOpen Ports Discovered:\n"
+        for host, protocols in list(results.port_scanning.open_ports.items())[:10]:  # Show first 10
+            for protocol, ports in protocols.items():
+                ports_str = ', '.join(map(str, ports[:10]))  # Show first 10 ports
+                if len(ports) > 10:
+                    ports_str += f" (+{len(ports)-10} more)"
+                report += f"  {host} ({protocol.upper()}): {ports_str}\n"
     
     if results.errors:
         report += f"\nERRORS:\n"
