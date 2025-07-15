@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate test PCAP file with various types of network traffic
+Generate test PCAP file with various types of network traffic, including HTTP and TLS
 """
 import os
 import sys
@@ -92,7 +92,7 @@ def generate_test_pcap():
             packets.append(icmp_reply)
     
     # 4. Web traffic (HTTP)
-    print("  - Creating web traffic...")
+    print("  - Creating HTTP web traffic...")
     web_sites = [
         "192.168.1.50", "10.0.0.1", "172.16.0.1", "192.168.0.1"
     ]
@@ -102,7 +102,7 @@ def generate_test_pcap():
         http_request = (
             Ether(dst="ff:ff:ff:ff:ff:ff") /
             IP(src="192.168.1.100", dst=site) /
-            TCP(sport=60000+i, dport=80, flags="S") /
+            TCP(sport=60000+i, dport=80, flags="PA") /  # PSH + ACK typical of HTTP payload
             Raw(load=f"GET / HTTP/1.1\r\nHost: {site}\r\n\r\n")
         )
         packets.append(http_request)
@@ -111,12 +111,36 @@ def generate_test_pcap():
         http_response = (
             Ether(src="ff:ff:ff:ff:ff:ff") /
             IP(src=site, dst="192.168.1.100") /
-            TCP(sport=80, dport=60000+i, flags="SA") /
+            TCP(sport=80, dport=60000+i, flags="PA") /
             Raw(load="HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n")
         )
         packets.append(http_response)
     
-    # 5. Some potentially suspicious TCP traffic
+    # 5. TLS traffic (simulated handshake packets)
+    print("  - Creating TLS traffic (simulated handshake)...")
+    tls_sites = [
+        "192.168.1.60", "10.0.0.2"
+    ]
+    for i, site in enumerate(tls_sites):
+        # TLS ClientHello (simplified Raw payload)
+        tls_client_hello = (
+            Ether(dst="ff:ff:ff:ff:ff:ff") /
+            IP(src="192.168.1.100", dst=site) /
+            TCP(sport=61000+i, dport=443, flags="PA") /
+            Raw(load=b"\x16\x03\x01\x00\x31\x01\x00\x00\x2d\x03\x03" + b"\x00" * 34)  # partial ClientHello
+        )
+        packets.append(tls_client_hello)
+
+        # TLS ServerHello (simplified Raw payload)
+        tls_server_hello = (
+            Ether(src="ff:ff:ff:ff:ff:ff") /
+            IP(src=site, dst="192.168.1.100") /
+            TCP(sport=443, dport=61000+i, flags="PA") /
+            Raw(load=b"\x16\x03\x01\x00\x0a\x02\x00\x00\x06\x03\x03")  # partial ServerHello
+        )
+        packets.append(tls_server_hello)
+
+    # 6. Some potentially suspicious TCP traffic
     print("  - Creating suspicious TCP traffic...")
     suspicious_ports = [4444, 6666, 31337, 1234, 9999]
     
@@ -129,14 +153,14 @@ def generate_test_pcap():
         )
         packets.append(tcp_sus)
     
-    # 6. Add some UDP traffic
+    # 7. Add some UDP traffic
     print("  - Creating UDP traffic...")
     for i in range(20):
         udp_packet = (
             Ether(dst="ff:ff:ff:ff:ff:ff") /
             IP(src="192.168.1.100", dst=f"10.0.0.{i+1}") /
             UDP(sport=50000+i, dport=53) /
-            Raw(load=f"UDP test data {i}")
+            Raw(load=f"UDP test data {i}".encode())
         )
         packets.append(udp_packet)
     
@@ -157,7 +181,8 @@ def generate_test_pcap():
         print(f"  - Normal DNS queries: {len(normal_domains) * 2}")
         print(f"  - Suspicious DNS queries: {len(suspicious_domains)}")
         print(f"  - ICMP packets: ~{50 + 17}")  # 50 requests + some replies
-        print(f"  - Web traffic: {len(web_sites) * 2}")
+        print(f"  - HTTP traffic: {len(web_sites) * 2}")
+        print(f"  - TLS traffic: {len(tls_sites) * 2}")
         print(f"  - Suspicious TCP: {len(suspicious_ports)}")
         print(f"  - UDP traffic: 20")
         

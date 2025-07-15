@@ -12,7 +12,8 @@ from .analysis.basic_stats import BasicStatsAnalyzer
 from .analysis.dns_analyzer import DNSAnalyzer
 from .analysis.icmp_analyzer import ICMPAnalyzer
 from .analysis.port_scan_analyzer import PortScanAnalyzer
-
+from pcapsleuth.analysis.http_analyzer import HTTPAnalyzer
+from pcapsleuth.analysis.tls_analyzer import TLSAnalyzer
 logger = logging.getLogger(__name__)
 
 class PcapAnalysisEngine:
@@ -24,7 +25,9 @@ class PcapAnalysisEngine:
             BasicStatsAnalyzer(),
             DNSAnalyzer(),
             ICMPAnalyzer(),
-            PortScanAnalyzer()  # Add the new port scanning analyzer
+            PortScanAnalyzer(),
+            HTTPAnalyzer(),
+            TLSAnalyzer() 
         ]
         
     def analyze_pcap(self, filepath: str) -> AnalysisResult:

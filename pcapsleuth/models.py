@@ -2,6 +2,31 @@ from dataclasses import dataclass, field
 from collections import Counter
 from typing import List, Dict, Tuple, Optional, Any
 from datetime import datetime
+from dataclasses import dataclass, field
+from typing import Dict, List, Any
+
+@dataclass
+class HTTPAnalysisResult:
+    total_http_requests: int = 0
+    http_methods: Dict[str, int] = field(default_factory=dict)
+    hostnames: Dict[str, int] = field(default_factory=dict)
+    urls: Dict[str, int] = field(default_factory=dict)
+    errors: List[str] = field(default_factory=list)
+
+@dataclass
+class TLSAnalysisResult:
+    total_tls_sessions: int = 0
+    tls_versions: Dict[str, int] = field(default_factory=dict)
+    certificate_hosts: Dict[str, int] = field(default_factory=dict)  # if we parse certs (optional)
+    errors: List[str] = field(default_factory=list)
+
+@dataclass
+class AnalysisResult:
+    # existing fields...
+    http_analysis: HTTPAnalysisResult = field(default_factory=HTTPAnalysisResult)
+    tls_analysis: TLSAnalysisResult = field(default_factory=TLSAnalysisResult)
+    # keep other existing fields and default factories...
+
 
 @dataclass
 class Config:
@@ -21,6 +46,10 @@ class Config:
     stealth_scan_threshold: int = 10  # minimum attempts to consider stealth scan
     rapid_scan_threshold: int = 50  # packets per second threshold
     rapid_scan_window: int = 1  # time window in seconds
+    
+    # HTTP and TLS Analysis Enable/Disable
+    http_analysis_enabled: bool = True
+    tls_analysis_enabled: bool = True
     
     # General Settings
     max_top_talkers: int = 10

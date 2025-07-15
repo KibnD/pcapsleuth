@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PcapSleuth CLI - Command Line Interface
-Enhanced with comprehensive port scanning and analysis options
+Enhanced with comprehensive port scanning, HTTP, and TLS analysis options
 """
 
 import click
@@ -60,6 +60,14 @@ logging.basicConfig(
 @click.option('--rapid-scan-window', type=int, default=1,
               help='Time window in seconds for rapid scan detection (default: 1)')
 
+# HTTP Analysis Options
+@click.option('--http-enabled/--no-http-enabled', default=True,
+              help='Enable or disable HTTP analysis (default: enabled)')
+
+# TLS Analysis Options
+@click.option('--tls-enabled/--no-tls-enabled', default=True,
+              help='Enable or disable TLS analysis (default: enabled)')
+
 # Display Options
 @click.option('--max-top-talkers', type=int, default=10,
               help='Maximum number of top talkers to display (default: 10)')
@@ -77,7 +85,8 @@ logging.basicConfig(
 def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_length, 
            dns_txt_threshold, icmp_flood_threshold, icmp_flood_window,
            syn_scan_threshold, udp_scan_threshold, stealth_scan_threshold,
-           rapid_scan_threshold, rapid_scan_window, max_top_talkers, max_dns_queries,
+           rapid_scan_threshold, rapid_scan_window, http_enabled, tls_enabled,
+           max_top_talkers, max_dns_queries,
            batch_size, quiet, verbose, no_banner, show_errors):
     """
     Analyze a PCAP file for network threats and statistics.
@@ -128,6 +137,10 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
             rapid_scan_threshold=rapid_scan_threshold,
             rapid_scan_window=rapid_scan_window,
             
+            # HTTP and TLS enable/disable
+            http_analysis_enabled=http_enabled,
+            tls_analysis_enabled=tls_enabled,
+            
             # General Settings
             max_top_talkers=max_top_talkers,
             max_dns_queries=max_dns_queries,
@@ -146,6 +159,8 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
             click.echo(f"  ICMP flood threshold: {icmp_flood_threshold}")
             click.echo(f"  SYN scan threshold: {syn_scan_threshold}")
             click.echo(f"  UDP scan threshold: {udp_scan_threshold}")
+            click.echo(f"  HTTP analysis enabled: {http_enabled}")
+            click.echo(f"  TLS analysis enabled: {tls_enabled}")
             click.echo("")
         
         results = engine.analyze_pcap(pcap_file)
@@ -196,6 +211,16 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
                     scan_types.append(f"{len(results.port_scanning.rapid_scans)} Rapid")
                 
                 threat_details.append(f"Port Scanning: {', '.join(scan_types)}")
+
+            # HTTP threat/summary info (optional - adapt if you have)
+            if hasattr(results, 'http_analysis') and results.http_analysis.total_http_requests > 0:
+                threats_detected += 0  # No threat increment unless you want
+                threat_details.append(f"HTTP Analysis: {results.http_analysis.total_http_requests} requests observed")
+
+            # TLS threat/summary info (optional - adapt if you have)
+            if hasattr(results, 'tls_analysis') and results.tls_analysis.total_tls_sessions > 0:
+                threats_detected += 0
+                threat_details.append(f"TLS Analysis: {results.tls_analysis.total_tls_sessions} sessions observed")
             
             if threats_detected > 0:
                 click.secho(f"⚠️  {threats_detected} threat type(s) detected:", fg='red')

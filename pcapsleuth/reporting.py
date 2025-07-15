@@ -33,7 +33,22 @@ def _generate_json_report(results) -> str:
             'dns_queries': [
                 {'domain': domain, 'count': count}
                 for domain, count in results.dns_queries
-            ]
+            ],
+            # Added HTTP stats
+            'http': {
+                'total_http_requests': results.http_analysis.total_http_requests,
+                'http_methods': results.http_analysis.http_methods,
+                'hostnames': results.http_analysis.hostnames,
+                'urls': results.http_analysis.urls,
+                'errors': results.http_analysis.errors,
+            },
+            # Added TLS stats
+            'tls': {
+                'total_tls_sessions': results.tls_analysis.total_tls_sessions,
+                'tls_versions': results.tls_analysis.tls_versions,
+                'certificate_hosts': results.tls_analysis.certificate_hosts,
+                'errors': results.tls_analysis.errors,
+            }
         },
         'threats': {
             'dns_tunneling': {
@@ -85,6 +100,41 @@ def _generate_markdown_report(results) -> str:
     for domain, count in results.dns_queries[:10]:
         report += f"- {domain}: {count} queries\n"
     
+    # HTTP Analysis
+    report += f"""
+
+## HTTP Analysis
+- **Total HTTP Requests**: {results.http_analysis.total_http_requests}
+
+### HTTP Methods
+"""
+    for method, count in sorted(results.http_analysis.http_methods.items(), key=lambda x: -x[1]):
+        report += f"- {method}: {count}\n"
+
+    report += "\n### Top Hostnames\n"
+    for host, count in sorted(results.http_analysis.hostnames.items(), key=lambda x: -x[1])[:10]:
+        report += f"- {host}: {count}\n"
+
+    report += "\n### Top URLs\n"
+    for url, count in sorted(results.http_analysis.urls.items(), key=lambda x: -x[1])[:10]:
+        report += f"- {url}: {count}\n"
+
+    # TLS Analysis
+    report += f"""
+
+## TLS Analysis
+- **Total TLS Sessions**: {results.tls_analysis.total_tls_sessions}
+
+### TLS Versions
+"""
+    for version, count in results.tls_analysis.tls_versions.items():
+        report += f"- {version}: {count}\n"
+
+    report += "\n### Certificate Hosts (SNI)\n"
+    for host, count in sorted(results.tls_analysis.certificate_hosts.items(), key=lambda x: -x[1])[:10]:
+        report += f"- {host}: {count}\n"
+
+    # Threats section (unchanged)
     report += f"""
 ## Threat Analysis
 
@@ -165,11 +215,47 @@ Top Conversations:
     report += "\nTop DNS Queries:\n"
     for domain, count in results.dns_queries[:10]:
         report += f"  {domain}: {count} queries\n"
-    
+
+    # HTTP Analysis
+    report += f"""
+
+HTTP ANALYSIS
+-------------
+Total HTTP Requests: {results.http_analysis.total_http_requests}
+
+HTTP Methods:
+"""
+    for method, count in sorted(results.http_analysis.http_methods.items(), key=lambda x: -x[1]):
+        report += f"  {method}: {count}\n"
+
+    report += "\nTop Hostnames:\n"
+    for host, count in sorted(results.http_analysis.hostnames.items(), key=lambda x: -x[1])[:10]:
+        report += f"  {host}: {count}\n"
+
+    report += "\nTop URLs:\n"
+    for url, count in sorted(results.http_analysis.urls.items(), key=lambda x: -x[1])[:10]:
+        report += f"  {url}: {count}\n"
+
+    # TLS Analysis
+    report += f"""
+
+TLS ANALYSIS
+------------
+Total TLS Sessions: {results.tls_analysis.total_tls_sessions}
+
+TLS Versions:
+"""
+    for version, count in results.tls_analysis.tls_versions.items():
+        report += f"  {version}: {count}\n"
+
+    report += "\nCertificate Hosts (SNI):\n"
+    for host, count in sorted(results.tls_analysis.certificate_hosts.items(), key=lambda x: -x[1])[:10]:
+        report += f"  {host}: {count}\n"
+
+    # Threats section (unchanged)
     report += f"""
 THREAT ANALYSIS
 ---------------
-
 DNS Tunneling:
   Suspicious Queries: {results.dns_tunneling.total_suspicious_queries}
   High Entropy Queries: {len(results.dns_tunneling.high_entropy_queries)}

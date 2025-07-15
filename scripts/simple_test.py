@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Simple test script to verify basic functionality
+Simple test script to verify basic functionality including PCAP analysis
 """
+
 import os
 import sys
 
@@ -100,6 +101,53 @@ def check_file_structure():
     
     return all_good
 
+def test_full_analysis(pcap_path):
+    """Run a full PCAP analysis and print summary for HTTP and TLS"""
+    print("\n🕵️ Running full PCAP analysis test...")
+    
+    try:
+        from pcapsleuth.core import PcapAnalysisEngine
+        
+        if not os.path.isfile(pcap_path):
+            print(f"❌ PCAP file not found: {pcap_path}")
+            return False
+        
+        engine = PcapAnalysisEngine()
+        results = engine.analyze_pcap(pcap_path)
+        
+        print("\n--- HTTP Analysis Summary ---")
+        http = results.http_analysis
+        print(f"Total HTTP requests: {http.total_http_requests}")
+        print(f"HTTP Methods: {http.http_methods}")
+        print(f"Hostnames: {http.hostnames}")
+        print(f"URLs: {http.urls}")
+        if http.errors:
+            print(f"HTTP Errors: {http.errors}")
+        else:
+            print("No HTTP errors detected.")
+        
+        print("\n--- TLS Analysis Summary ---")
+        tls = results.tls_analysis
+        print(f"Total TLS sessions: {tls.total_tls_sessions}")
+        print(f"TLS Versions: {tls.tls_versions}")
+        print(f"Certificate Hosts: {tls.certificate_hosts}")
+        if tls.errors:
+            print(f"TLS Errors: {tls.errors}")
+        else:
+            print("No TLS errors detected.")
+        
+        if results.errors:
+            print("\nGeneral errors during analysis:")
+            for err in results.errors:
+                print(f" - {err}")
+        
+        print("\n✓ Full analysis test completed successfully.")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Full analysis test failed: {e}")
+        return False
+
 def main():
     """Run all tests"""
     print("🚀 Running PCAP Analysis Tool Tests\n")
@@ -125,10 +173,18 @@ def main():
         print("\n❌ Basic functionality issues detected.")
         return False
     
+    # Run a full analysis test if test_traffic.pcap is present in current directory
+    pcap_file = "test_traffic.pcap"
+    full_analysis_ok = test_full_analysis(pcap_file)
+    
+    if not full_analysis_ok:
+        print(f"\n❌ Full analysis test failed or PCAP file '{pcap_file}' missing.")
+        print("You can generate a test PCAP with: python scripts/generate_test_pcap.py")
+        return False
+    
     print("\n✅ All tests passed! The tool should be ready to use.")
     print("\nNext steps:")
-    print("1. Run: python scripts/generate_test_pcap.py")
-    print("2. Run: python main.py test_traffic.pcap")
+    print(f"1. Run: python main.py {pcap_file}")
     
     return True
 
