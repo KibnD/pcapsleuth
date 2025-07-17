@@ -31,8 +31,8 @@ logging.basicConfig(
 @click.command()
 @click.argument('pcap_file', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
-@click.option('--format', '-f', type=click.Choice(['text', 'json', 'markdown']), 
-              default='text', help='Output format (text, json, markdown)')
+@click.option('--format', '-f', type=click.Choice(['text', 'json', 'markdown', 'html']), 
+              default='text', help='Output format (text, json, markdown, html)')
 
 # DNS Analysis Options
 @click.option('--dns-entropy-threshold', type=float, default=3.5,
@@ -88,6 +88,11 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
            rapid_scan_threshold, rapid_scan_window, http_enabled, tls_enabled,
            max_top_talkers, max_dns_queries,
            batch_size, quiet, verbose, no_banner, show_errors):
+    # Suppress INFO logs for end users unless --verbose is set
+    import logging
+    if not verbose:
+        logging.getLogger().setLevel(logging.WARNING)
+
     """
     Analyze a PCAP file for network threats and statistics.
     
@@ -100,6 +105,9 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
         
         # Save JSON report with custom thresholds
         python main.py capture.pcap -o report.json -f json --syn-scan-threshold 10
+        
+        # Save HTML report with custom DNS settings
+        python main.py capture.pcap -o report.html -f html --dns-entropy-threshold 4.0
         
         # Verbose analysis with custom DNS settings
         python main.py capture.pcap -v --dns-entropy-threshold 4.0 --dns-txt-threshold 30
@@ -161,6 +169,7 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
             click.echo(f"  UDP scan threshold: {udp_scan_threshold}")
             click.echo(f"  HTTP analysis enabled: {http_enabled}")
             click.echo(f"  TLS analysis enabled: {tls_enabled}")
+            click.echo(f"  Output format: {format}")
             click.echo("")
         
         results = engine.analyze_pcap(pcap_file)
@@ -212,14 +221,12 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
                 
                 threat_details.append(f"Port Scanning: {', '.join(scan_types)}")
 
-            # HTTP threat/summary info (optional - adapt if you have)
+            # HTTP analysis summary
             if hasattr(results, 'http_analysis') and results.http_analysis.total_http_requests > 0:
-                threats_detected += 0  # No threat increment unless you want
                 threat_details.append(f"HTTP Analysis: {results.http_analysis.total_http_requests} requests observed")
 
-            # TLS threat/summary info (optional - adapt if you have)
+            # TLS analysis summary
             if hasattr(results, 'tls_analysis') and results.tls_analysis.total_tls_sessions > 0:
-                threats_detected += 0
                 threat_details.append(f"TLS Analysis: {results.tls_analysis.total_tls_sessions} sessions observed")
             
             if threats_detected > 0:
@@ -235,6 +242,28 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
                 for proto, count in results.protocol_distribution.items():
                     percentage = (count / results.packet_count) * 100
                     click.echo(f"  {proto}: {count:,} packets ({percentage:.1f}%)")
+            
+            # Additional summaries for HTTP and TLS
+            if hasattr(results, 'http_analysis') and results.http_analysis.total_http_requests > 0:
+                click.echo(f"\nHTTP Analysis Summary:")
+                click.echo(f"  Total HTTP requests: {results.http_analysis.total_http_requests:,}")
+                if results.http_analysis.http_methods:
+                    top_method = max(results.http_analysis.http_methods.items(), key=lambda x: x[1])
+                    click.echo(f"  Most common method: {top_method[0]} ({top_method[1]} requests)")
+                if results.http_analysis.hostnames:
+                    click.echo(f"  Unique hostnames: {len(results.http_analysis.hostnames)}")
+                if results.http_analysis.errors:
+                    click.echo(f"  HTTP errors: {len(results.http_analysis.errors)}")
+            
+            if hasattr(results, 'tls_analysis') and results.tls_analysis.total_tls_sessions > 0:
+                click.echo(f"\nTLS Analysis Summary:")
+                click.echo(f"  Total TLS sessions: {results.tls_analysis.total_tls_sessions:,}")
+                if results.tls_analysis.tls_versions:
+                    click.echo(f"  TLS versions detected: {len(results.tls_analysis.tls_versions)}")
+                if results.tls_analysis.certificate_hosts:
+                    click.echo(f"  Certificate hosts (SNI): {len(results.tls_analysis.certificate_hosts)}")
+                if results.tls_analysis.errors:
+                    click.echo(f"  TLS errors: {len(results.tls_analysis.errors)}")
         
         # Show errors if requested or if verbose
         if results.errors and (show_errors or verbose):
