@@ -1,8 +1,14 @@
 import streamlit as st
-import os
 import tempfile
+import os
+import sys
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit.components.v1 as components
 from datetime import datetime
+# Append root project directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from pcapsleuth.core import PcapAnalysisEngine
 from pcapsleuth.reporting import generate_report
 from pcapsleuth.models import Config
@@ -159,24 +165,75 @@ if uploaded_file:
     config = Config()
     engine = PcapAnalysisEngine(config)
     results = engine.analyze_pcap(tmp_file_path)
+    threat_detected = (
+        results.dns_tunneling.total_suspicious_queries > 0 or
+        len(results.icmp_floods.potential_floods) > 0 or
+        results.port_scanning.total_scan_attempts > 0
+    )
+
+    if threat_detected:
+        st.toast("🚨 Threats detected in this capture! Check the 🚨 Threats tab.", icon="⚠️")
 
     st.markdown("---")
     st.header("📊 Analysis Summary")
+    # Threat detection overview
+    has_threats = (
+        results.dns_tunneling.total_suspicious_queries > 0 or
+        len(results.icmp_floods.potential_floods) > 0 or
+        results.port_scanning.total_scan_attempts > 0
+    )
+
+    if has_threats:
+        st.error("🚨 **Threats detected in this capture! Review details in each tab.**")
+    else:
+        st.success("✅ No threats detected.")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Packets", f"{results.packet_count:,}")
     col2.metric("Top Talkers", len(results.top_talkers))
     col3.metric("DNS Queries", len(results.dns_queries))
-    col4.metric("Threats Detected", sum([
+    threat_count = sum([
         results.dns_tunneling.total_suspicious_queries > 0,
         len(results.icmp_floods.potential_floods) > 0,
         results.port_scanning.total_scan_attempts > 0
-    ]))
+    ])
+
+    delta_color = "inverse" if threat_count > 0 else "normal"  # red if non-zero
+    col4.metric("Threats Detected", threat_count, delta=None, delta_color=delta_color)
+
 
     # Tabs for each analyzer
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📈 Basic Stats", "🌐 DNS", "📶 ICMP", "🔍 Port Scans", "📡 HTTP", "🔐 TLS"
+    tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🚨 Threats", "📈 Basic Stats", "🌐 DNS", "📶 ICMP", "🔍 Port Scans", "📡 HTTP", "🔐 TLS"
     ])
+
+    with tab0:
+        st.subheader("🚨 Threats Overview")
+
+        if not has_threats:
+            st.success("✅ No threats were detected in this analysis.")
+        else:
+            if results.dns_tunneling.total_suspicious_queries > 0:
+                st.warning(f"🔎 Suspicious DNS Queries: {results.dns_tunneling.total_suspicious_queries}")
+                with st.expander("🔍 View Suspicious DNS Query Details"):
+                    st.json(results.dns_tunneling.high_entropy_queries)
+
+            if results.icmp_floods.potential_floods:
+                st.warning("🌊 ICMP Flooding Detected")
+                with st.expander("📥 View ICMP Flood Details"):
+                    st.json(results.icmp_floods.potential_floods)
+
+            if results.port_scanning.total_scan_attempts > 0:
+                st.warning(f"🔍 Port Scans Detected: {results.port_scanning.total_scan_attempts} attempts")
+                if results.port_scanning.rapid_scans:
+                    st.markdown("**⚡ Rapid Scans**")
+                    st.dataframe(pd.DataFrame(results.port_scanning.rapid_scans))
+                if results.port_scanning.tcp_syn_scans:
+                    st.markdown("**🔁 TCP SYN Scans**")
+                    st.json(results.port_scanning.tcp_syn_scans[:3])
+                if results.port_scanning.udp_scans:
+                    st.markdown("**📤 UDP Scans**")
+                    st.json(results.port_scanning.udp_scans[:3])
 
     with tab1:
         st.subheader("📈 Basic Protocol Distribution")
