@@ -21,14 +21,6 @@ class TLSAnalysisResult:
     errors: List[str] = field(default_factory=list)
 
 @dataclass
-class AnalysisResult:
-    # existing fields...
-    http_analysis: HTTPAnalysisResult = field(default_factory=HTTPAnalysisResult)
-    tls_analysis: TLSAnalysisResult = field(default_factory=TLSAnalysisResult)
-    # keep other existing fields and default factories...
-
-
-@dataclass
 class Config:
     """Configuration for PcapSleuth analysis"""
     # DNS Analysis Settings
@@ -49,7 +41,7 @@ class Config:
     
     # HTTP and TLS Analysis Enable/Disable
     http_analysis_enabled: bool = True
-    tls_analysis_enabled: bool = True
+    tls_analysis_enabled: bool = False
     
     # General Settings
     max_top_talkers: int = 10
@@ -171,6 +163,9 @@ class AnalysisResult:
     dns_tunneling: DnsTunnelingResult = field(default_factory=DnsTunnelingResult)
     icmp_floods: IcmpFloodResult = field(default_factory=IcmpFloodResult)
     port_scanning: PortScanResult = field(default_factory=PortScanResult)
+    # Optional analysis sections
+    http_analysis: HTTPAnalysisResult = field(default_factory=HTTPAnalysisResult)
+    tls_analysis: TLSAnalysisResult = field(default_factory=TLSAnalysisResult)
     
     # Errors
     errors: List[str] = field(default_factory=list)

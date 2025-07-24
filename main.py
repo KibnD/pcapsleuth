@@ -64,9 +64,9 @@ logging.basicConfig(
 @click.option('--http-enabled/--no-http-enabled', default=True,
               help='Enable or disable HTTP analysis (default: enabled)')
 
-# TLS Analysis Options
-@click.option('--tls-enabled/--no-tls-enabled', default=True,
-              help='Enable or disable TLS analysis (default: enabled)')
+# TLS Analysis Option
+@click.option('--enable-tls', 'tls_enabled', is_flag=True, default=False,
+              help='Enable TLS analysis (WARNING: Scapy may emit unavoidable cipher suite warnings; these do not affect analysis quality)')
 
 # Display Options
 @click.option('--max-top-talkers', type=int, default=10,
@@ -169,6 +169,8 @@ def analyze(pcap_file, output, format, dns_entropy_threshold, dns_max_query_leng
             click.echo(f"  UDP scan threshold: {udp_scan_threshold}")
             click.echo(f"  HTTP analysis enabled: {http_enabled}")
             click.echo(f"  TLS analysis enabled: {tls_enabled}")
+            if tls_enabled:
+                click.secho("NOTE: TLS analysis enabled. Scapy may emit unavoidable cipher suite warnings; these do not affect analysis quality.", fg='yellow')
             click.echo(f"  Output format: {format}")
             click.echo("")
         

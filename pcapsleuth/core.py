@@ -15,7 +15,7 @@ from .analysis.dns_analyzer import DNSAnalyzer
 from .analysis.icmp_analyzer import ICMPAnalyzer
 from .analysis.port_scan_analyzer import PortScanAnalyzer
 from pcapsleuth.analysis.http_analyzer import HTTPAnalyzer
-from pcapsleuth.analysis.tls_analyzer import TLSAnalyzer
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,9 @@ class PcapAnalysisEngine:
         if getattr(self.config, 'http_analysis_enabled', True):
             self.analyzers.append(HTTPAnalyzer())
             
-        if getattr(self.config, 'tls_analysis_enabled', True):
+        if getattr(self.config, 'tls_analysis_enabled', False):
+            # Lazy import to avoid loading Scapy TLS layers unless needed
+            from pcapsleuth.analysis.tls_analyzer import TLSAnalyzer
             self.analyzers.append(TLSAnalyzer())
         
         # Suppress scapy TLS warnings about unknown cipher suites
