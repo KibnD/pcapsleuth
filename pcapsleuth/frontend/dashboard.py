@@ -189,18 +189,52 @@ if uploaded_file:
         st.success("✅ No threats detected.")
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Packets", f"{results.packet_count:,}")
-    col2.metric("Top Talkers", len(results.top_talkers))
-    col3.metric("DNS Queries", len(results.dns_queries))
+    with col1:
+        st.metric("Total Packets", f"{results.packet_count:,}")
+        st.caption("🧾 Total number of packets in the capture file.")
+
+    with col2:
+        st.metric("Top Talkers", len(results.top_talkers))
+        st.caption("📡 Unique IP conversations seen the most.")
+
+    with col3:
+        st.metric("DNS Queries", len(results.dns_queries))
+        st.caption("🌍 Count of DNS lookups (domain resolutions).")
+
     threat_count = sum([
         results.dns_tunneling.total_suspicious_queries > 0,
         len(results.icmp_floods.potential_floods) > 0,
         results.port_scanning.total_scan_attempts > 0
     ])
+    # Risk Level Logic
+    if threat_count == 0:
+        risk_level = " No Risk"
+        risk_color = "green"
+    elif threat_count == 1:
+        risk_level = " Low Risk"
+        risk_color = "blue"
+    elif threat_count == 2:
+        risk_level = " Medium Risk"
+        risk_color = "orange"
+    elif threat_count == 3:
+        risk_level = " High Risk"
+        risk_color = "red"
+    else:
+        risk_level = "🚨 Critical Risk"
+        risk_color = "darkred"
 
     delta_color = "inverse" if threat_count > 0 else "normal"  # red if non-zero
-    col4.metric("Threats Detected", threat_count, delta=None, delta_color=delta_color)
-
+    with col4:
+        st.metric("Threats Detected", threat_count, delta=None, delta_color=delta_color)
+        st.caption("🚨 Count of major threats like floods, scans, tunneling.")
+    
+    # threats badge
+    st.markdown("### 🛡️ Risk Assessment")
+    st.markdown(
+        f"<div style='padding:10px; background-color:{risk_color}; color:white; border-radius:10px; text-align:center;'>"
+        f"<strong>{risk_level}</strong></div>",
+        unsafe_allow_html=True
+    )
 
     # Tabs for each analyzer
     tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -226,33 +260,37 @@ if uploaded_file:
             if results.port_scanning.total_scan_attempts > 0:
                 st.warning(f"🔍 Port Scans Detected: {results.port_scanning.total_scan_attempts} attempts")
                 if results.port_scanning.rapid_scans:
-                    st.markdown("**⚡ Rapid Scans**")
-                    st.dataframe(pd.DataFrame(results.port_scanning.rapid_scans))
+                    with st.expander("**⚡ Rapid Scans**"):
+                        st.dataframe(pd.DataFrame(results.port_scanning.rapid_scans))
                 if results.port_scanning.tcp_syn_scans:
-                    st.markdown("**🔁 TCP SYN Scans**")
-                    st.json(results.port_scanning.tcp_syn_scans[:3])
+                    with st.expander("**🔁 TCP SYN Scans**"):
+                        st.json(results.port_scanning.tcp_syn_scans[:3])
                 if results.port_scanning.udp_scans:
-                    st.markdown("**📤 UDP Scans**")
-                    st.json(results.port_scanning.udp_scans[:3])
+                    with st.expander("**📤 UDP Scans**"):
+                        st.json(results.port_scanning.udp_scans[:3])
 
     with tab1:
         st.subheader("📈 Basic Protocol Distribution")
         df_proto = pd.DataFrame(results.protocol_distribution.items(), columns=["Protocol", "Packets"])
-        st.dataframe(df_proto)
+        with st.expander("click to view details"):
+            st.dataframe(df_proto)
 
         st.subheader("📨 Top Talkers")
         df_talkers = pd.DataFrame(results.top_talkers, columns=["Conversation", "Packets"])
-        st.dataframe(df_talkers)
+        with st.expander("click to view details"):
+            st.dataframe(df_talkers)
 
     with tab2:
         st.subheader("🌐 Top DNS Queries")
         df_dns = pd.DataFrame(results.dns_queries, columns=["Domain", "Count"])
-        st.dataframe(df_dns)
+        with st.expander("click to view details"):
+            st.dataframe(df_dns)
 
         st.subheader("⚠️ DNS Tunneling Detection")
         if results.dns_tunneling.total_suspicious_queries:
             st.warning(f"Suspicious Queries Detected: {results.dns_tunneling.total_suspicious_queries}")
-            st.json(results.dns_tunneling.high_entropy_queries)
+            with st.expander("click to view details"):    
+                st.json(results.dns_tunneling.high_entropy_queries)
         else:
             st.success("No suspicious DNS tunneling detected.")
 
@@ -261,7 +299,8 @@ if uploaded_file:
         st.metric("Total ICMP Packets", results.icmp_floods.total_icmp_packets)
         st.subheader("🌊 Potential Floods")
         if results.icmp_floods.potential_floods:
-            st.json(results.icmp_floods.potential_floods)
+            with st.expander("click to view details"):
+                st.json(results.icmp_floods.potential_floods)
         else:
             st.success("No ICMP floods detected.")
 
@@ -273,22 +312,26 @@ if uploaded_file:
         if results.port_scanning.rapid_scans:
             st.markdown("#### ⚡ Rapid Scans Detected")
             df_rapid = pd.DataFrame(results.port_scanning.rapid_scans)
-            st.dataframe(df_rapid)
+            with st.expander("click to view details"):
+                st.dataframe(df_rapid)
 
         # TCP SYN Scans
         if results.port_scanning.tcp_syn_scans:
             st.markdown("#### 🔁 TCP SYN Scans")
-            st.json(results.port_scanning.tcp_syn_scans[:5])
+            with st.expander("click to view details"):
+                st.json(results.port_scanning.tcp_syn_scans[:5])
 
         # UDP Scans
         if results.port_scanning.udp_scans:
             st.markdown("#### 📤 UDP Scans")
-            st.json(results.port_scanning.udp_scans[:5])
+            with st.expander("click to view details"):
+                st.json(results.port_scanning.udp_scans[:5])
 
         # Stealth Scans
         if results.port_scanning.stealth_scans:
             st.markdown("#### 🕵️ Stealth Scans")
-            st.json(results.port_scanning.stealth_scans[:5])
+            with st.expander("click to view details"):
+                st.json(results.port_scanning.stealth_scans[:5])
 
         # Discovered Open Ports
         if results.port_scanning.open_ports:
@@ -302,7 +345,8 @@ if uploaded_file:
                         "Ports": ', '.join(str(p) for p in ports)
                     })
             df_open_ports = pd.DataFrame(open_ports_data)
-            st.dataframe(df_open_ports)
+            with st.expander("click to view details"):
+                st.dataframe(df_open_ports)
         else:
             st.success("✅ No open ports detected.")
 
@@ -310,15 +354,18 @@ if uploaded_file:
         st.subheader("📡 HTTP Analysis")
         st.metric("Total HTTP Requests", results.http_analysis.total_http_requests)
         df_methods = pd.DataFrame(results.http_analysis.http_methods.items(), columns=["Method", "Count"])
-        st.dataframe(df_methods)
+        with st.expander("click to view details"):
+            st.dataframe(df_methods)
 
         df_hosts = pd.DataFrame(results.http_analysis.hostnames.items(), columns=["Host", "Requests"])
         st.write("### Top Hostnames")
-        st.dataframe(df_hosts)
+        with st.expander("click to view details"):
+            st.dataframe(df_hosts)
 
         if results.http_analysis.errors:
             st.warning("HTTP Errors")
-            st.json(results.http_analysis.errors[:5])
+            with st.expander("click to view details"):
+                st.json(results.http_analysis.errors[:5])
 
     with tab6:
         st.subheader("🔐 TLS Sessions")
@@ -326,15 +373,18 @@ if uploaded_file:
 
         df_versions = pd.DataFrame(results.tls_analysis.tls_versions.items(), columns=["TLS Version", "Count"])
         st.write("### TLS Versions")
-        st.dataframe(df_versions)
+        with st.expander("click to view details"):
+            st.dataframe(df_versions)
 
         df_hosts = pd.DataFrame(results.tls_analysis.certificate_hosts.items(), columns=["SNI Host", "Count"])
         st.write("### Certificate Hosts")
-        st.dataframe(df_hosts)
+        with st.expander("click to view details"):
+            st.dataframe(df_hosts)
 
         if results.tls_analysis.errors:
             st.warning("TLS Errors")
-            st.json(results.tls_analysis.errors[:5])
+            with st.expander("click to view details"):
+                st.json(results.tls_analysis.errors[:5])
 
     # Generate report
     st.markdown("---")
